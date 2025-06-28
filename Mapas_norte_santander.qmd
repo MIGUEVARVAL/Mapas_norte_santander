@@ -1,29 +1,86 @@
 ---
-title: "Mapas_norte_santander"
+title: "Análisis Espacial de Indicadores en los Municipios del Departamento de Norte de Santander"
+author: 
+  - name: Sofía Duque Rendón 
+  - name: Melany Franco Marin 
+  - name: Juan David Trejos
+  - name: Miguel Ángel Vargas Valencia
+date: last-modified
+date-format: full
+lang: es
+format: 
+  pdf:
+    toc: true
+editor: source
+execute: 
+  echo: false
+  warning: false
 ---
+
+# Introducción
+
+El presente trabajo tiene como propósito explorar y visualizar espacialmente tres dimensiones clave del desarrollo territorial en el departamento de Norte de Santander, Colombia. A través de mapas temáticos, se analiza la distribución de la pobreza en sus municipios (utilizando indicadores como el Índice de Pobreza Multidimensional), el comportamiento del índice de desempeño fiscal y la distancia de cada municipio con respecto a la capital departamental, Cúcuta.
+
+Estos aspectos permiten identificar desigualdades socioeconómicas y posibles relaciones entre la ubicación geográfica, la capacidad fiscal de los gobiernos locales y las condiciones de vida de la población.
+
+# Objetivos
+
+## Objetivo general
+
+Analizar la distribución espacial de variables sociales, fiscales y geográficas en los municipios del departamento de Norte de Santander mediante representaciones cartográficas.
+
+## Objetivos específicos
+
+-   Representar la distribución de la pobreza en los municipios del departamento.
+
+-   Visualizar el desempeño fiscal de los municipios para identificar diferencias en la gestión de recursos públicos.
+
+-   Calcular y representar la distancia geográfica entre cada municipio y la capital departamental (Cúcuta).
+
+-   Facilitar la interpretación de patrones espaciales que puedan incidir en el desarrollo regional.
 
 ## Quarto
 
 Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
 
 ```{r}
-library(tidyverse)
 library(sf)
+library(dplyr)
 library(ggplot2)
 ```
 
 ```{r}
+# Mapa con las coordenadas de los municipios
 mapa <- st_read("Municipios/Municipios.shp")
 
+# Se filtran los departamentos para obtenr solo los que pertenecen a Norte de Santander
+# El filtro se hace por el código el cual es 54
 norte_santander <- mapa %>%
-  filter(DEPTO == "NORTE DE SANTANDER")
+  filter(DPTO_CCDGO == "54")
+
+#Transformar el objeto espacial
+norte_santander <- st_transform(norte_santander, crs = 4326)
 ```
 
 ```{r}
+# Archivo con todos los municipios de colombia
+municipiosDistancia <- read.csv("DistanciaCapital/municipios.csv") 
 
+#Se filtra por departamento y se elimina el 54 del código del municipio
+municipiosDistancia <- municipiosDistancia %>%
+  filter(Código.Departamento == "54") %>%
+  mutate(Código.Municipio = str_sub(as.character(Código.Municipio), 3, 5))
+
+#Se convierte en tipo númerico las coordenadas
+municipiosDistancia <- municipiosDistancia %>%
+  mutate(
+    longitud = as.numeric(longitud),
+    Latitud = as.numeric(Latitud)
+  ) 
 ```
 
 ```{r}
+#Se grafica el mapa con los municipios 
 ggplot(norte_santander) +
   geom_sf(fill = "lightblue", color = "gray40") +
   labs(title = "Mapa de municipios") +
@@ -31,12 +88,15 @@ ggplot(norte_santander) +
 ```
 
 ```{r}
-library(tmap)
+# Se hace un join por el código del municipio
+norte_santander_distancia <- norte_santander %>%
+  left_join(municipiosDistancia, by = c("MPIO_CCDGO" = "Código.Municipio"))
 
-# Vista en modo gráfico
-tmap_mode("plot")
 
-tm_shape(norte_santander) +
-  tm_polygons("gray90", border.col = "black") +
-  tm_layout(title = "Mapa de Norte de Santander", frame = FALSE)
 ```
+
+# Referencias
+
+Linea Base. (2024, March 12). *Descarga shape municipios de Colombia*. https://lineabase.com.co/shape-municipios-colombia/
+
+*DIVIPOLA- Códigos municipios \| Datos Abiertos Colombia*. (2025, Jan 27). https://www.datos.gov.co/d/gdxc-w37w
