@@ -1,0 +1,42 @@
+---
+title: "Mapas_norte_santander"
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+```{r}
+library(tidyverse)
+library(sf)
+library(ggplot2)
+```
+
+```{r}
+mapa <- st_read("Municipios/Municipios.shp")
+
+norte_santander <- mapa %>%
+  filter(DEPTO == "NORTE DE SANTANDER")
+```
+
+```{r}
+
+```
+
+```{r}
+ggplot(norte_santander) +
+  geom_sf(fill = "lightblue", color = "gray40") +
+  labs(title = "Mapa de municipios") +
+  theme_minimal()
+```
+
+```{r}
+library(tmap)
+
+# Vista en modo gráfico
+tmap_mode("plot")
+
+tm_shape(norte_santander) +
+  tm_polygons("gray90", border.col = "black") +
+  tm_layout(title = "Mapa de Norte de Santander", frame = FALSE)
+```
