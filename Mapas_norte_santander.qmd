@@ -47,6 +47,9 @@ Quarto enables you to weave together content and executable code into a finished
 library(sf)
 library(dplyr)
 library(ggplot2)
+library(stringr)
+library(leaflet)
+
 ```
 
 ```{r}
@@ -74,9 +77,9 @@ municipiosDistancia <- municipiosDistancia %>%
 #Se convierte en tipo númerico las coordenadas
 municipiosDistancia <- municipiosDistancia %>%
   mutate(
-    longitud = as.numeric(longitud),
-    Latitud = as.numeric(Latitud)
-  ) 
+    longitud = as.numeric(gsub(",", ".", longitud)),
+    Latitud = as.numeric(gsub(",", ".", Latitud))
+  )
 ```
 
 ```{r}
@@ -88,11 +91,55 @@ ggplot(norte_santander) +
 ```
 
 ```{r}
-# Se hace un join por el código del municipio
+# Se hace un join por el código del municipio para graficar los puntos dentro de cada municipio
 norte_santander_distancia <- norte_santander %>%
   left_join(municipiosDistancia, by = c("MPIO_CCDGO" = "Código.Municipio"))
 
+municipios_puntos <- st_as_sf(municipiosDistancia,
+                              coords = c("longitud", "Latitud"),
+                              crs = 4326)
+municipios_puntos <- st_transform(municipios_puntos, crs = st_crs(norte_santander))
+ggplot(norte_santander) +
+  geom_sf(fill = "lightblue", color = "gray40") +
+  geom_sf(data = municipios_puntos, color = "red", size = 2) +
+  labs(title = "Mapa de municipios con puntos de ubicación") +
+  theme_minimal()
 
+
+```
+
+```{r}
+names(norte_santander)
+```
+
+```{r}
+
+
+
+
+leaflet(norte_santander) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = "lightblue",
+    color = "gray",
+    weight = 1,
+    popup = ~paste0(
+      "<strong>Municipio: </strong>", MPIO_CNMBR, "<br>",
+      "<strong>Departamento: </strong>", DEPTO
+    ),
+    label = ~MPIO_CNMBR
+  ) %>%
+  addCircleMarkers(
+    data = municipios_puntos,       # tu sf con lat/long
+    color = "red",
+    radius = 4,
+    stroke = TRUE,
+    fillOpacity = 0.9,
+    label = ~Nombre.Municipio,             # o la columna que prefieras
+    popup = ~paste0(
+      "<strong>Municipio: </strong>", Nombre.Municipio, "<br>"
+    )
+  )
 ```
 
 # Referencias
