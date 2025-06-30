@@ -9,7 +9,7 @@ date: last-modified
 date-format: full
 lang: es
 format: 
-  pdf:
+  html:
     toc: true
 editor: source
 execute: 
@@ -39,22 +39,48 @@ Analizar la distribución espacial de variables sociales, fiscales y geográfica
 
 -   Facilitar la interpretación de patrones espaciales que puedan incidir en el desarrollo regional.
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
 ```{r}
 library(sf)
 library(dplyr)
 library(ggplot2)
 library(stringr)
 library(leaflet)
+library(geosphere)
 
 ```
+
+# Norte de Santander
 
 ```{r}
 # Mapa con las coordenadas de los municipios
 mapa <- st_read("Municipios/Municipios.shp")
+
+mapaColombia <- mapa %>%
+  mutate(
+    departamento = if_else(DPTO_CCDGO == "54", "Norte de Santander", "Otros departamentos")
+  )
+
+# Graficar con leyenda
+ggplot(mapaColombia) +
+  geom_sf(aes(fill = departamento, color = departamento), size = 0.3) +
+  scale_fill_manual(
+    values = c("Norte de Santander" = "steelblue", "Otros departamentos" = "gray90"),
+    name = "Departamento"
+  ) +
+  scale_color_manual(
+    values = c("Norte de Santander" = "steelblue", "Otros departamentos" = "gray90"),
+    name = "Departamento"
+  ) +
+  labs(
+    title = "Norte de Santander"
+  ) +
+  theme_minimal()
+```
+
+Norte de Santander es un departamento colombiano ubicado en la región andina, fronterizo con Venezuela al norte y este, y colindante con los departamentos de Santander, Boyacá y Cesar al oeste y sur. Su extensión territorial es de aproximadamente 21 900 km², distribuidos en 40 municipios, y cuenta con una población estimada de entre 1.6 y 1.7 millones de habitantes , con una densidad demográfica en torno a los 76 hab/km². Su capital es San José de Cúcuta, la ciudad más poblada y núcleo del área metropolitana junto a Los Patios, Villa del Rosario y otros municipios cercanos, y su geografía comprende desde la Cordillera Oriental hasta valles y llanuras, bordeados por las cuencas de los ríos Catatumbo, Pamplonita y Zulia.
+
+```{r}
+
 
 # Se filtran los departamentos para obtenr solo los que pertenecen a Norte de Santander
 # El filtro se hace por el código el cual es 54
@@ -82,6 +108,8 @@ municipiosDistancia <- municipiosDistancia %>%
   )
 ```
 
+## Municipios del departamento Norte de Santander
+
 ```{r}
 #Se grafica el mapa con los municipios 
 ggplot(norte_santander) +
@@ -90,55 +118,81 @@ ggplot(norte_santander) +
   theme_minimal()
 ```
 
+## Distancia de los municipios a la capital
+
+En la siguiente visualización se presenta un mapa interactivo en el que, al hacer clic sobre cada municipio, se despliega información del mismo. Adicionalmente, se incluye una escala de colores que representa la distancia de cada municipio con respecto a la capital departamental.
+
 ```{r}
 # Se hace un join por el código del municipio para graficar los puntos dentro de cada municipio
 norte_santander_distancia <- norte_santander %>%
   left_join(municipiosDistancia, by = c("MPIO_CCDGO" = "Código.Municipio"))
 
+#Convertir longitud y latitud en coordenadas
 municipios_puntos <- st_as_sf(municipiosDistancia,
                               coords = c("longitud", "Latitud"),
                               crs = 4326)
 municipios_puntos <- st_transform(municipios_puntos, crs = st_crs(norte_santander))
-ggplot(norte_santander) +
-  geom_sf(fill = "lightblue", color = "gray40") +
-  geom_sf(data = municipios_puntos, color = "red", size = 2) +
-  labs(title = "Mapa de municipios con puntos de ubicación") +
-  theme_minimal()
 
-
-```
-
-```{r}
-names(norte_santander)
+#Crear una columna con la distancia a la capital
 ```
 
 ```{r}
 
 
+# Aseguramos que coord_capital sea un vector numérico c(long, lat)
+coord_capital <- c(
+  norte_santander_distancia$longitud[norte_santander_distancia$MPIO_CCDGO == "001"],
+  norte_santander_distancia$Latitud[norte_santander_distancia$MPIO_CCDGO == "001"]
+)
 
+norte_santander_distancia <- norte_santander_distancia %>%
+  rowwise() %>%
+  mutate(distancia_km = distHaversine(
+    matrix(c(longitud, Latitud), nrow = 1),
+    matrix(coord_capital, nrow = 1)
+  ) / 1000) %>%
+  ungroup()
+```
 
-leaflet(norte_santander) %>%
+```{r}
+
+# Crear paleta de colores basada en la distancia
+paleta_distancia <- colorNumeric(
+  palette = colorRampPalette(c("green", "yellow", "red"))(100),  
+  domain = norte_santander_distancia$distancia_km,
+  reverse = FALSE
+)
+
+leaflet(norte_santander_distancia) %>%
   addProviderTiles("CartoDB.Positron") %>%
   addPolygons(
-    fillColor = "lightblue",
+    fillColor = ~paleta_distancia(distancia_km),  
     color = "gray",
     weight = 1,
+    fillOpacity = 0.7,
     popup = ~paste0(
-      "<strong>Municipio: </strong>", MPIO_CNMBR, "<br>",
-      "<strong>Departamento: </strong>", DEPTO
+      "<strong>Código municipio: </strong>", MPIO_CCDGO, "<br>",
+      "<strong>Nombre municipio: </strong>", Nombre.Municipio, "<br>",
+      "<strong>Tipo: </strong>", Tipo..Municipio...Isla...Área.no.municipalizada, "<br>",
+      "<strong>Latitud: </strong>", Latitud, "<br>",
+      "<strong>Longitud: </strong>", longitud, "<br>",
+      "<strong>Distancia a la capital en KM: </strong>", round(distancia_km, 2), "<br>"
     ),
     label = ~MPIO_CNMBR
   ) %>%
   addCircleMarkers(
-    data = municipios_puntos,       # tu sf con lat/long
-    color = "red",
+    data = municipios_puntos,  
+    color = "gray",
     radius = 4,
     stroke = TRUE,
-    fillOpacity = 0.9,
-    label = ~Nombre.Municipio,             # o la columna que prefieras
-    popup = ~paste0(
-      "<strong>Municipio: </strong>", Nombre.Municipio, "<br>"
-    )
+    fillOpacity = 0.9
+  ) %>%
+  addLegend(
+    "bottomright",
+    pal = paleta_distancia,
+    values = ~distancia_km,
+    title = "Dist Capital (km)",
+    opacity = 1
   )
 ```
 
@@ -147,3 +201,5 @@ leaflet(norte_santander) %>%
 Linea Base. (2024, March 12). *Descarga shape municipios de Colombia*. https://lineabase.com.co/shape-municipios-colombia/
 
 *DIVIPOLA- Códigos municipios \| Datos Abiertos Colombia*. (2025, Jan 27). https://www.datos.gov.co/d/gdxc-w37w
+
+Wikipedia. (2025, June 26). *Norte de Santander*. Wikipedia, La Enciclopedia Libre. https://es.wikipedia.org/wiki/Norte_de_Santander
