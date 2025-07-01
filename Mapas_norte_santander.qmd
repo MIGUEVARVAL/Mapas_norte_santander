@@ -39,6 +39,32 @@ Analizar la distribución espacial de variables sociales, fiscales y geográfica
 
 -   Facilitar la interpretación de patrones espaciales que puedan incidir en el desarrollo regional.
 
+# Metodología utilizada
+
+## Materiales y fuentes de datos
+
+Para la construcción y visualización de los mapas y el análisis de la distribución de la pobreza en los municipios del departamento de Norte de Santander, se empleó el uso de los siguientes recursos digitales oficiales de libre acceso:
+
+-   Shapefile de municipios de Colombia: proporcionado por Línea Base (2024), contiene los polígonos geográficos necesarios para la visualización espacial de los municipios.
+
+-   DIVIPOLA – Códigos de municipios: extraídos del portal Datos Abiertos Colombia (2025), fueron empleados para estandarizar y unir los datos numéricos con las entidades geográficas.
+
+-   Datos sociodemográficos y de desempeño fiscal: obtenidos del portal TerriData del Departamento Nacional de Planeación (DNP), específicamente el indicador del ndice de Pobreza Multidimensional (IPM)
+
+-   Datos de distancias: las distancias entre los municipios y la capital departamental (Cúcuta) fueron calculadas utilizando información geográfica tomada de Wikipedia (2025) para ubicar la capital y otras cabeceras municipales.
+
+## Métodos y procedimiento realizado
+
+1.  Recolección y limpieza de datos: Se descargaron los archivos en formato .shp, .csv y .xls de las fuentes mencionadas.
+
+2.  Procesamiento geoespacial: Se utilizaron herramientas del entorno R, específicamente los paquetes sf, dplyr, readxl y ggplot2, para cargar, manipular y unir los datos territoriales y numéricos.
+
+3.  Cálculo de distancias: Se calcularon las distancias euclidianas entre los centroides de cada municipio y la ciudad de Cúcuta utilizando funciones geográficas del paquete geosphere.
+
+4.  Construcción de los mapas: Los mapas fueron generados mediante ggplot2 y tmap, representando visualmente los indicadores seleccionados, a nivel municipal.
+
+5.  Documentación y reproducibilidad: Todo el procesamiento se documentó mediante archivos .R y .qmd. Se cuidó que no existieran rutas absolutas y se usaron referencias relativas para garantizar la portabilidad del código. La versión HTML del informe se generó a partir de dichos scripts. La redacción y revisión del texto fue asistida parcialmente por inteligencia artificial.
+
 ```{r}
 library(sf)
 library(dplyr)
@@ -77,7 +103,7 @@ ggplot(mapaColombia) +
   theme_minimal()
 ```
 
-Norte de Santander es un departamento colombiano ubicado en la región andina, fronterizo con Venezuela al norte y este, y colindante con los departamentos de Santander, Boyacá y Cesar al oeste y sur. Su extensión territorial es de aproximadamente 21 900 km², distribuidos en 40 municipios, y cuenta con una población estimada de entre 1.6 y 1.7 millones de habitantes , con una densidad demográfica en torno a los 76 hab/km². Su capital es San José de Cúcuta, la ciudad más poblada y núcleo del área metropolitana junto a Los Patios, Villa del Rosario y otros municipios cercanos, y su geografía comprende desde la Cordillera Oriental hasta valles y llanuras, bordeados por las cuencas de los ríos Catatumbo, Pamplonita y Zulia.
+Norte de Santander es un departamento colombiano ubicado en la región andina, fronterizo con Venezuela al norte y este, y colindante con los departamentos de Santander, Boyacá y Cesar al oeste y sur. Su extensión territorial es de aproximadamente 21900km², distribuidos en 40 municipios, y cuenta con una población estimada de entre 1.6 y 1.7 millones de habitantes , con una densidad demográfica en torno a los 76hab/km². Su capital es San José de Cúcuta, la ciudad más poblada y núcleo del área metropolitana junto a Los Patios, Villa del Rosario y otros municipios cercanos, y su geografía comprende desde la Cordillera Oriental hasta valles y llanuras, bordeados por las cuencas de los ríos Catatumbo, Pamplonita y Zulia.
 
 ```{r}
 
@@ -196,10 +222,121 @@ leaflet(norte_santander_distancia) %>%
   )
 ```
 
+## Vsualización de la pobreza en los municipios del departamento.
+
+```{r}
+# Base de datos con el indice de pobreza de cada departamento
+pobrezaNorSan <- readxl::read_xlsx("TerriData_Dim14.xlsx")
+
+# Filtrado de la base de datos
+pobrezaNorSan <- pobrezaNorSan %>%
+  filter(
+    Departamento == "Norte de Santander",
+    str_detect(str_to_lower(Indicador), "pobreza multidimensional")
+  ) %>%
+  filter(Año == max(Año, na.rm = TRUE))
+
+# En la base de datos norte_santander, juntamos la variable (columna) del codigo del departamento con el del municipio como una nueva llamada codigo_municipio
+norte_santander <- norte_santander %>%
+  mutate(codigo_municipio = paste0(DPTO_CCDGO, MPIO_CCDGO))
+
+#  Asegúrate de que ambas columnas codigo del municipio tengan el mismo tipo
+
+norte_santander <- norte_santander %>% mutate(codigo_municipio = as.character(codigo_municipio))
+pobreza_norte <- pobreza_norte %>%
+  mutate(`Código Entidad` = as.character(`Código Entidad`))
+
+
+# Creamos una nueva base de datos con el indice de pobreza de cada municipio del departamento, se juntan a partir del codigo del municipio
+pobrezaNorSan <- norte_santander %>%
+  left_join(pobreza_norte, by = c("codigo_municipio" = "Código Entidad"))
+
+```
+
+```{r}
+
+# Nos aseguramos que el valor del IPM sea numérica
+pobrezaNorSanJoin <- pobrezaNorSanJoin %>%
+  mutate(`Dato Numérico` = as.numeric(gsub(",", ".", `Dato Numérico`)))
+
+# Construimos el mapa de la distribución de la pobreza en Norte de Santander
+ggplot(data = pobrezaNorSanJoin) +
+  geom_sf(aes(fill = `Dato Numérico`), color = "white", size = 0.2) +
+  scale_fill_gradient(
+    name = "Índice de Pobreza",
+    low = "#fff5f0",  # zonas menos pobres
+    high = "#cb181d", # zonas más pobres
+    na.value = "grey90"
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Índice de Pobreza Multidimensional en Norte de Santander",
+    subtitle = "Datos más recientes por municipio (2018)",
+    caption = "Fuente: TerriData - DNP"
+  )
+
+
+```
+
+En la siguiente visualización se presenta un mapa interactivo en el que, al pasar el cursor sobre cada municipio, se despliega el nombre del mismo. Adicionalmente, se incluye una escala de colores que representa la índice de pobreza multidimensional (IPM) de cada municipio. Los datos fueron tomados del DANE en el año 2018.
+
+```{r}
+# Crear paleta de colores según IPM
+pal <- colorNumeric(
+  palette = "Reds",
+  domain = pobrezaNorSanJoin$`Dato Numérico`
+)
+
+# Crear mapa interactivo
+leaflet(pobrezaNorSanJoin) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = ~pal(`Dato Numérico`),
+    color = "white",
+    weight = 1,
+    opacity = 1,
+    fillOpacity = 0.7,
+    highlightOptions = highlightOptions(
+      color = "black", weight = 2, bringToFront = TRUE
+    ),
+    label = ~paste0(Entidad, ": ", `Dato Numérico`, "%"),
+    labelOptions = labelOptions(direction = "auto")
+  ) %>%
+  addLegend(
+    pal = pal, values = ~`Dato Numérico`,
+    title = "IPM (%)",
+    position = "bottomright"
+  )
+```
+
+```{r}
+# Graficamos el histograma de la distribución de IPM's en los municipios
+ggplot(pobrezaNorSanJoin, aes(x = `Dato Numérico`)) +
+  geom_histogram(bins = 15, fill = "#cb181d", color = "white") +
+  labs(title = "Distribución del índice de pobreza multidimensional (IPM) en Norte de Santander", x = "IPM (%)", y = "Frecuencia")
+
+```
+
+# Análisis exploratorio de los resultados obtenidos
+
+El análisis exploratorio inicia con la visualización espacial del Índice de Pobreza Multidimensional (IPM) en los municipios del departamento de Norte de Santander. En el primer mapa, se observa un gradiente de color rojo que permite identificar visualmente las áreas con mayores niveles de pobreza. El IPM varía entre los municipios, siendo algunos significativamente más afectados que otros.
+
+Además, el histograma de frecuencias muestra que la mayoría de los municipios se concentran entre valores de IPM del 35% al 60%. Aunque hay casos con valores por debajo del 20% y por encima del 65%, estos son minoritarios, lo que sugiere una distribución ligeramente sesgada hacia valores medios-altos.
+
+## Interpretación de los resultados
+
+Los resultados sugieren una relación espacial entre el nivel de pobreza y la ubicación geográfica de los municipios respecto a la capital. Los municipios que presentan mayores niveles de IPM tienden a ubicarse en las regiones periféricas del departamento, justamente donde las distancias a Cúcuta son más elevadas. Esto es especialmente evidente en la zona norte del departamento, que concentra tanto mayores niveles de pobreza como mayor distancia a la capital.
+
+Esta relación puede explicarse por factores estructurales: los municipios más alejados tienden a tener menor acceso a infraestructura, servicios públicos, educación y oportunidades económicas, lo cual contribuye a su vulnerabilidad multidimensional. Además de estos hechos también es importante recalcar la presencia del conflicto armado en la perferia norte del departamento, una condición que ha deteriorado aún más las condiciones sociales, económicas y de seguridad, y que también influye significativamente en el aumento del IPM en esa región.
+
+La distribución de frecuencias del IPM también respalda esta observación: si bien hay municipios con bajo nivel de pobreza, la mayoría enfrenta condiciones medias o altas, lo que indica una problemática extendida en el territorio y no exclusivamente localizada en unos pocos municipios.
+
 # Referencias
 
-Linea Base. (2024, March 12). *Descarga shape municipios de Colombia*. https://lineabase.com.co/shape-municipios-colombia/
+Departamento Nacional de Planeación. (s.f.). TerriData - Descargas. https://terridata.dnp.gov.co/index-app.html#/descargas
 
 *DIVIPOLA- Códigos municipios \| Datos Abiertos Colombia*. (2025, Jan 27). https://www.datos.gov.co/d/gdxc-w37w
+
+Linea Base. (2024, March 12). *Descarga shape municipios de Colombia*. https://lineabase.com.co/shape-municipios-colombia/
 
 Wikipedia. (2025, June 26). *Norte de Santander*. Wikipedia, La Enciclopedia Libre. https://es.wikipedia.org/wiki/Norte_de_Santander
