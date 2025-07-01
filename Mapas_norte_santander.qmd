@@ -222,7 +222,7 @@ leaflet(norte_santander_distancia) %>%
   )
 ```
 
-## Vsualización de la pobreza en los municipios del departamento.
+## Visualización de la pobreza en los municipios del departamento.
 
 ```{r}
 # Base de datos con el indice de pobreza de cada departamento
@@ -330,6 +330,77 @@ Los resultados sugieren una relación espacial entre el nivel de pobreza y la ub
 Esta relación puede explicarse por factores estructurales: los municipios más alejados tienden a tener menor acceso a infraestructura, servicios públicos, educación y oportunidades económicas, lo cual contribuye a su vulnerabilidad multidimensional. Además de estos hechos también es importante recalcar la presencia del conflicto armado en la perferia norte del departamento, una condición que ha deteriorado aún más las condiciones sociales, económicas y de seguridad, y que también influye significativamente en el aumento del IPM en esa región.
 
 La distribución de frecuencias del IPM también respalda esta observación: si bien hay municipios con bajo nivel de pobreza, la mayoría enfrenta condiciones medias o altas, lo que indica una problemática extendida en el territorio y no exclusivamente localizada en unos pocos municipios.
+
+# Índice de Desempeño Fiscal (IDF) en los municipios del departamento
+El Índice de Desempeño Fiscal (IDF) es un indicador que evalúa la gestión de los recursos públicos en los municipios. Este índice considera variables como la dependencia de las transferencias del gobierno nacional, el nivel de endeudamiento, el ahorro corriente, la capacidad de ejecución de inversión, entre otras. En este trabajo se emplea el valor del IDF sin bonos para evaluar la gestión fiscal sin incentivos externos.
+
+```{r}
+# Cargar la base de datos con el desempeño fiscal por municipio
+library(readxl)
+desempeno_fiscal <- read_excel("informacion fiscal.xlsx")
+
+# Crear código de municipio compatible con el shapefile
+desempeno_fiscal <- desempeno_fiscal %>%
+  mutate(codigo_municipio = as.character(`Código`))
+
+# Unir datos fiscales con geometría de Norte de Santander
+idf_norte_santander <- norte_santander %>%
+  left_join(desempeno_fiscal, by = c("codigo_municipio" = "codigo_municipio"))
+
+# Asegurarse que el IDF sea numérico
+idf_norte_santander <- idf_norte_santander %>%
+  mutate(idf = as.numeric(`Nuevo IDF (sin bonos)`))
+```
+## Mapa interactivo del Índice de Desempeño Fiscal
+
+En el siguiente mapa interactivo se presenta el valor del IDF por municipio en el departamento de Norte de Santander. Se utiliza una escala de color verde para indicar el nivel de desempeño: los valores más altos (mejor desempeño) se representan en verde oscuro, mientras que los más bajos aparecen en tonos más claros.
+
+```{r}
+pal_idf <- colorNumeric(
+  palette = "Greens",
+  domain = idf_norte_santander$idf
+)
+
+leaflet(idf_norte_santander) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = ~pal_idf(idf),
+    color = "white",
+    weight = 1,
+    fillOpacity = 0.7,
+    label = ~paste0(MPIO_CNMBR, ": ", round(idf, 2)),
+    labelOptions = labelOptions(direction = "auto")
+  ) %>%
+  addLegend(
+    pal = pal_idf, values = ~idf,
+    title = "IDF",
+    position = "bottomright"
+  )
+
+```
+
+## Distribución del IDF en los municipios
+
+Se visualiza a continuación un histograma con la distribución del IDF para todos los municipios del departamento. Esto permite identificar si existe una concentración de municipios en rangos específicos del desempeño fiscal.
+
+```{r}
+ggplot(idf_norte_santander, aes(x = idf)) +
+  geom_histogram(bins = 15, fill = "#238b45", color = "white") +
+  labs(title = "Distribución del Índice de Desempeño Fiscal en Norte de Santander", x = "IDF", y = "Frecuencia") +
+  theme_minimal()
+
+```
+## Interpretación de resultados
+
+En términos generales en el mapa, se observan municipios con alto desempeño fiscal (valores de IDF entre 60 y 67.5) concentrados en la zona centro-oriental del departamento, en especial en los alrededores de San José de Cúcuta y municipios como Pamplona.
+
+Por el contrario, los municipios en algunas zonas del occidente, presentan niveles bajos de IDF. Esta situación puede estar asociada con factores estructurales como el conflicto armado, limitaciones en cobertura institucional, baja densidad poblacional o menor capacidad técnica para la gestión de ingresos y gastos.
+
+El histograma de frecuencias complementa esta lectura espacial al mostrar que los municipios se agrupan principalmente en dos rangos de desempeño fiscal: uno moderado (entre 52.5 y 55), y otro alto (entre 60 y 67.5). En el extremo inferior, unos pocos municipios presentan un IDF inferior a 50, lo que indica condiciones fiscales críticas.
+
+Esta distribución asimétrica sugiere que, si bien una parte significativa de los municipios mantiene un desempeño aceptable o destacado, aún persisten brechas considerables que deben ser atendidas. La existencia de una dualidad territorial –con municipios bien gestionados y otros con serias limitaciones fiscales– es un reflejo de desigualdades estructurales en el desarrollo institucional local.
+
+En conjunto, tanto el mapa como el histograma permiten concluir que el desempeño fiscal no está uniformemente distribuido en el departamento lo puede plantear un desafío para la equidad territorial y la planificación regional
 
 # Referencias
 
