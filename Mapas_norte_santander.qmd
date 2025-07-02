@@ -57,11 +57,11 @@ Para la construcción y visualización de los mapas y el análisis de la distrib
 
 1.  Recolección y limpieza de datos: Se descargaron los archivos en formato .shp, .csv y .xls de las fuentes mencionadas.
 
-2.  Procesamiento geoespacial: Se utilizaron herramientas del entorno R, específicamente los paquetes sf, dplyr, readxl y ggplot2, para cargar, manipular y unir los datos territoriales y numéricos.
+2.  Procesamiento geoespacial: Se emplearon paquetes especializados como sf, dplyr, readxl, geosphere, ggplot2 y leaflet para el tratamiento y análisis de los datos.
 
-3.  Cálculo de distancias: Se calcularon las distancias euclidianas entre los centroides de cada municipio y la ciudad de Cúcuta utilizando funciones geográficas del paquete geosphere.
+3.  Cálculo de distancias: Las distancias entre los municipios y la capital departamental (San José de Cúcuta) fueron calculadas utilizando coordenadas de los centroides municipales
 
-4.  Construcción de los mapas: Los mapas fueron generados mediante ggplot2 y tmap, representando visualmente los indicadores seleccionados, a nivel municipal.
+4.  Construcción de los mapas: Se construyeron mapas temáticos interactivos mediante leaflet y mapas estáticos con ggplot2. Las escalas de color se definieron con funciones como colorNumeric, para representar visualmente variables continuas como el IPM, la distancia en kilómetros y el IDF.
 
 5.  Documentación y reproducibilidad: Todo el procesamiento se documentó mediante archivos .R y .qmd. Se cuidó que no existieran rutas absolutas y se usaron referencias relativas para garantizar la portabilidad del código. La versión HTML del informe se generó a partir de dichos scripts. La redacción y revisión del texto fue asistida parcialmente por inteligencia artificial.
 
@@ -240,55 +240,35 @@ pobrezaNorSan <- pobrezaNorSan %>%
 norte_santander <- norte_santander %>%
   mutate(codigo_municipio = paste0(DPTO_CCDGO, MPIO_CCDGO))
 
-#  Asegúrate de que ambas columnas codigo del municipio tengan el mismo tipo
-
+# Nos aseguramos de que ambas columnas codigo del municipio tengan el mismo tipo
 norte_santander <- norte_santander %>% mutate(codigo_municipio = as.character(codigo_municipio))
-pobreza_norte <- pobreza_norte %>%
+pobrezaNorSan <- pobrezaNorSan %>%
   mutate(`Código Entidad` = as.character(`Código Entidad`))
 
 
 # Creamos una nueva base de datos con el indice de pobreza de cada municipio del departamento, se juntan a partir del codigo del municipio
-pobrezaNorSan <- norte_santander %>%
-  left_join(pobreza_norte, by = c("codigo_municipio" = "Código Entidad"))
-
-```
-
-```{r}
+LastPobrezaNorSan <- norte_santander %>%
+  left_join(pobrezaNorSan, by = c("codigo_municipio" = "Código Entidad"))
 
 # Nos aseguramos que el valor del IPM sea numérica
-pobrezaNorSanJoin <- pobrezaNorSanJoin %>%
+LastPobrezaNorSan <- LastPobrezaNorSan %>%
   mutate(`Dato Numérico` = as.numeric(gsub(",", ".", `Dato Numérico`)))
-
-# Construimos el mapa de la distribución de la pobreza en Norte de Santander
-ggplot(data = pobrezaNorSanJoin) +
-  geom_sf(aes(fill = `Dato Numérico`), color = "white", size = 0.2) +
-  scale_fill_gradient(
-    name = "Índice de Pobreza",
-    low = "#fff5f0",  # zonas menos pobres
-    high = "#cb181d", # zonas más pobres
-    na.value = "grey90"
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Índice de Pobreza Multidimensional en Norte de Santander",
-    subtitle = "Datos más recientes por municipio (2018)",
-    caption = "Fuente: TerriData - DNP"
-  )
-
 
 ```
 
-En la siguiente visualización se presenta un mapa interactivo en el que, al pasar el cursor sobre cada municipio, se despliega el nombre del mismo. Adicionalmente, se incluye una escala de colores que representa la índice de pobreza multidimensional (IPM) de cada municipio. Los datos fueron tomados del DANE en el año 2018.
+En la siguiente visualización se presenta un mapa interactivo del departamento de Norte de Santander, en el cual es posible visualizar el Índice de Pobreza Multidimensional (IPM) por municipio. Al pasar el cursor sobre cada área geográfica, se despliega el nombre del municipio correspondiente, lo que facilita la exploración detallada del territorio. La escala de colores permite identificar los niveles de pobreza: los tonos más intensos indican mayores carencias.
+
+El IPM es un indicador que refleja las múltiples privaciones que enfrentan las personas en distintos aspectos de su vida, como la educación, salud, condiciones de vivienda, acceso a servicios básicos y empleo digno. Los datos utilizados provienen del Departamento Administrativo Nacional de Estadística (DANE) y corresponden al año 2018.
 
 ```{r}
 # Crear paleta de colores según IPM
 pal <- colorNumeric(
   palette = "Reds",
-  domain = pobrezaNorSanJoin$`Dato Numérico`
+  domain = LastPobrezaNorSan$`Dato Numérico`
 )
 
 # Crear mapa interactivo
-leaflet(pobrezaNorSanJoin) %>%
+leaflet(LastPobrezaNorSan) %>%
   addProviderTiles("CartoDB.Positron") %>%
   addPolygons(
     fillColor = ~pal(`Dato Numérico`),
@@ -304,14 +284,14 @@ leaflet(pobrezaNorSanJoin) %>%
   ) %>%
   addLegend(
     pal = pal, values = ~`Dato Numérico`,
-    title = "IPM (%)",
+    title = "Índice de pobreza (%)",
     position = "bottomright"
   )
 ```
 
 ```{r}
 # Graficamos el histograma de la distribución de IPM's en los municipios
-ggplot(pobrezaNorSanJoin, aes(x = `Dato Numérico`)) +
+ggplot(LastPobrezaNorSan, aes(x = `Dato Numérico`)) +
   geom_histogram(bins = 15, fill = "#cb181d", color = "white") +
   labs(title = "Distribución del índice de pobreza multidimensional (IPM) en Norte de Santander", x = "IPM (%)", y = "Frecuencia")
 
@@ -402,12 +382,40 @@ Esta distribución asimétrica sugiere que, si bien una parte significativa de l
 
 En conjunto, tanto el mapa como el histograma permiten concluir que el desempeño fiscal no está uniformemente distribuido en el departamento lo puede plantear un desafío para la equidad territorial y la planificación regional
 
+# Conclusiones
+
+Se evidencia una desigualdad territorial, donde los municipios con mayores niveles de pobreza se concentran en las zonas más alejadas de la capital departamental.
+
+Existe una relación entre el nivel de pobreza, la distancia a la capital y el desempeño fiscal de los municipios, lo cual sugiere un patrón estructural de exclusión territorial.
+
+Un bajo desempeño fiscal refleja mayores dificultades para cubrir las necesidades económicas locales, lo que agrava las condiciones de pobreza en los municipios con menor capacidad institucional.
+
+La centralización de recursos en la capital y sus alrededores contribuye a profundizar las brechas territoriales, limitando el desarrollo en zonas periféricas del departamento.
+
+# Recomendaciones
+
+Implementar estrategias de desarrollo territorial y dinamización económica que prioricen los municipios más afectados por la pobreza en el departamento, promoviendo políticas focalizadas según sus necesidades específicas.
+
+Mejorar la conectividad física y las rutas de movilidad hacia la capital, facilitando el acceso equitativo a servicios, recursos y oportunidades para los municipios más alejados.
+
+Fomentar la cooperación intermunicipal, incentivando que los municipios con mayor capacidad fiscal contribuyan al fortalecimiento institucional y al desarrollo de aquellos con menos recursos.
+
+
 # Referencias
 
-Departamento Nacional de Planeación. (s.f.). TerriData - Descargas. https://terridata.dnp.gov.co/index-app.html#/descargas
+DANE. (2018). Índice de Pobreza Multidimensional – IPM Municipal. https://www.dane.gov.co
 
-*DIVIPOLA- Códigos municipios \| Datos Abiertos Colombia*. (2025, Jan 27). https://www.datos.gov.co/d/gdxc-w37w
+Datos Abiertos Colombia. (2025, enero 27). DIVIPOLA – Códigos de municipios. https://www.datos.gov.co/d/gdxc-w37w
 
-Linea Base. (2024, March 12). *Descarga shape municipios de Colombia*. https://lineabase.com.co/shape-municipios-colombia/
+Departamento Nacional de Planeación. (s.f.). TerriData - Descargas. Recuperado de: https://terridata.dnp.gov.co/index-app.html#/descargas
 
-Wikipedia. (2025, June 26). *Norte de Santander*. Wikipedia, La Enciclopedia Libre. https://es.wikipedia.org/wiki/Norte_de_Santander
+Línea Base. (2024, marzo 12). Descarga shape municipios de Colombia. https://lineabase.com.co/shape-municipios-colombia/
+
+Ministerio de Hacienda y Crédito Público. (2024). Índice de Desempeño Fiscal (IDF). https://www.minhacienda.gov.co
+
+OpenAI. (2025). ChatGPT (versión GPT-4). https://chat.openai.com
+
+Wikipedia. (2025, junio 26). Norte de Santander. En Wikipedia, La Enciclopedia Libre. https://es.wikipedia.org/wiki/Norte_de_Santander
+
+
+
