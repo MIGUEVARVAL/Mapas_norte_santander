@@ -312,6 +312,7 @@ Esta relación puede explicarse por factores estructurales: los municipios más 
 La distribución de frecuencias del IPM también respalda esta observación: si bien hay municipios con bajo nivel de pobreza, la mayoría enfrenta condiciones medias o altas, lo que indica una problemática extendida en el territorio y no exclusivamente localizada en unos pocos municipios.
 
 # Índice de Desempeño Fiscal (IDF) en los municipios del departamento
+
 El Índice de Desempeño Fiscal (IDF) es un indicador que evalúa la gestión de los recursos públicos en los municipios. Este índice considera variables como la dependencia de las transferencias del gobierno nacional, el nivel de endeudamiento, el ahorro corriente, la capacidad de ejecución de inversión, entre otras. En este trabajo se emplea el valor del IDF sin bonos para evaluar la gestión fiscal sin incentivos externos.
 
 ```{r}
@@ -331,6 +332,7 @@ idf_norte_santander <- norte_santander %>%
 idf_norte_santander <- idf_norte_santander %>%
   mutate(idf = as.numeric(`Nuevo IDF (sin bonos)`))
 ```
+
 ## Mapa interactivo del Índice de Desempeño Fiscal
 
 En el siguiente mapa interactivo se presenta el valor del IDF por municipio en el departamento de Norte de Santander. Se utiliza una escala de color verde para indicar el nivel de desempeño: los valores más altos (mejor desempeño) se representan en verde oscuro, mientras que los más bajos aparecen en tonos más claros.
@@ -370,6 +372,7 @@ ggplot(idf_norte_santander, aes(x = idf)) +
   theme_minimal()
 
 ```
+
 ## Interpretación de resultados
 
 En términos generales en el mapa, se observan municipios con alto desempeño fiscal (valores de IDF entre 60 y 67.5) concentrados en la zona centro-oriental del departamento, en especial en los alrededores de San José de Cúcuta y municipios como Pamplona.
@@ -416,6 +419,3 @@ Ministerio de Hacienda y Crédito Público. (2024). Índice de Desempeño Fiscal
 OpenAI. (2025). ChatGPT (versión GPT-4). https://chat.openai.com
 
 Wikipedia. (2025, junio 26). Norte de Santander. En Wikipedia, La Enciclopedia Libre. https://es.wikipedia.org/wiki/Norte_de_Santander
-
-
-
